@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1770964391772,
+      "tag": "0000_organic_lyja",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1771216891030,
+      "tag": "0001_hard_the_initiative",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1772700387138,
+      "tag": "0002_huge_pandemic",
+      "breakpoints": true
+    }
+  ]
+}

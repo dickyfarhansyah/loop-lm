@@ -1,0 +1,48 @@
+# Python 3.9 compatibility
+eval_type_backport
+
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Database
+sqlalchemy==2.0.36
+aiosqlite==0.20.0
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+python-multipart==0.0.20
+
+# Environment variables
+python-dotenv==1.0.1
+
+# Validation
+pydantic==2.10.4
+pydantic-settings==2.7.0
+email-validator==2.2.0
+
+# ChromaDB (embedded mode - no Docker needed)
+chromadb==0.6.3
+
+# Embeddings (for local embedding without external API)
+sentence-transformers==3.3.1
+numpy<2  # torch compiled against numpy 1.x; 2.x breaks embedding
+
+# Document parsing (pymupdf = 10-20x faster than pypdf for PDF)
+pymupdf==1.25.3
+python-docx==1.1.2
+openpyxl==3.1.5
+striprtf==0.0.26
+
+# RAG chunking (LangChain text splitter - RecursiveCharacterTextSplitter)
+langchain-text-splitters==0.3.8
+
+# HTTP client (for proxy routes)
+httpx==0.28.1
+aiohttp==3.11.11
+
+# Utilities
+nanoid==2.0.0
+python-slugify==8.0.4

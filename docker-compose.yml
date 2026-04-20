@@ -1,0 +1,116 @@
+services:
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: wiratek-ai-chromadb
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    volumes:
+      - chroma_data:/chroma/chroma
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: wiratek-ai-backend
+    restart: unless-stopped
+    ports:
+      - "8030:8030"
+    environment:
+      - NODE_ENV=production
+      - PORT=8030
+      - DATABASE_URL=/app/apps/backend/data/webui.db
+      - JWT_SECRET=${JWT_SECRET:-change-this-in-production}
+      - JWT_EXPIRES_IN=7d
+      - UPLOAD_DIR=/app/apps/backend/uploads
+      - MAX_FILE_SIZE=10485760
+      - WEBUI_NAME=Wiratek AI
+      - CHROMA_URL=http://chromadb:8000
+      - CHUNK_SIZE=${CHUNK_SIZE:-1000}
+      - CHUNK_OVERLAP=${CHUNK_OVERLAP:-200}
+    volumes:
+      - backend_data:/app/apps/backend/data
+      - backend_uploads:/app/apps/backend/uploads
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8030/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        - VITE_API_URL=
+    container_name: wiratek-ai-frontend
+    restart: unless-stopped
+    ports:
+      - "3080:80"
+    depends_on:
+      - backend
+
+  # ==================== Python Stack ====================
+
+  backend-python:
+    profiles: [python]
+    build:
+      context: .
+      dockerfile: apps/backend-python/Dockerfile
+    container_name: wiratek-ai-backend-python
+    restart: unless-stopped
+    ports:
+      - "8031:8031"
+    environment:
+      - NODE_ENV=production
+      - PORT=8031
+      - DATABASE_URL=/app/data/webui.db
+      - JWT_SECRET=${JWT_SECRET:-change-this-in-production}
+      - JWT_EXPIRES_IN=7d
+      - UPLOAD_DIR=/app/uploads
+      - MAX_FILE_SIZE=10485760
+      - WEBUI_NAME=Wiratek AI
+      - CHROMA_MODE=embedded
+      - CHROMA_PERSIST_DIR=/app/data/chroma
+      - CHUNK_SIZE=${CHUNK_SIZE:-1000}
+      - CHUNK_OVERLAP=${CHUNK_OVERLAP:-200}
+    volumes:
+      - backend_python_data:/app/data
+      - backend_python_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8031/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend-python:
+    profiles: [python]
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        - VITE_API_URL=
+    container_name: wiratek-ai-frontend-python
+    restart: unless-stopped
+    ports:
+      - "3081:80"
+    depends_on:
+      - backend-python
+
+volumes:
+  backend_data:
+  backend_uploads:
+  backend_python_data:
+  backend_python_uploads:
+  chroma_data:
