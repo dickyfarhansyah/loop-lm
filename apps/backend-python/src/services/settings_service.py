@@ -9,7 +9,7 @@ from src.utils.errors import NotFoundError
 DEFAULT_SETTINGS = {
     "general": {
         "version": "1.0.0",
-        "webui_name": "Wiratek AI",
+        "webui_name": "LoopLM",
         "logo_url": "",
         "logo_icon_url": "",
     },

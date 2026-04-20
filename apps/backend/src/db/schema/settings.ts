@@ -17,7 +17,7 @@ export type NewSetting = typeof settings.$inferInsert;
 export const defaultSettings = {
   general: {
     version: '1.0.0',
-    webui_name: 'Wiratek AI',
+    webui_name: 'LoopLM',
   },
   auth: {
     default_user_role: 'pending',

@@ -11,7 +11,7 @@ export const env = {
   CORS_ALLOW_ORIGIN: process.env.CORS_ALLOW_ORIGIN || '*',
   UPLOAD_DIR: process.env.UPLOAD_DIR || './uploads',
   MAX_FILE_SIZE: Number(process.env.MAX_FILE_SIZE) || 10485760, 
-  WEBUI_NAME: process.env.WEBUI_NAME || 'Wiratek AI',
+  WEBUI_NAME: process.env.WEBUI_NAME || 'LoopLM',
   
   CHROMA_URL: process.env.CHROMA_URL || 'http://localhost:8000',
   CHUNK_SIZE: Number(process.env.CHUNK_SIZE) || 1000,

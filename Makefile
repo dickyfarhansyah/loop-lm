@@ -2,7 +2,7 @@
 
 # Default target
 help:
-	@echo "Wiratek AI - Makefile Commands"
+	@echo "LoopLM - Makefile Commands"
 	@echo ""
 	@echo "Development:"
 	@echo "  make setup            - Install all dependencies (Node + Python)"

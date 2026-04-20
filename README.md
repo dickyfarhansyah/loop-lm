@@ -1,4 +1,4 @@
-# Wiratek AI
+# LoopLM
 
 Full-stack AI Chat Application — monorepo dengan Python backend dan React frontend.
 
@@ -67,7 +67,7 @@ JWT_SECRET=change-this-secret-in-production
 JWT_EXPIRES_IN=7d
 UPLOAD_DIR=./uploads
 MAX_FILE_SIZE=10485760
-WEBUI_NAME=Wiratek AI
+WEBUI_NAME=LoopLM
 
 # ChromaDB — embedded (default, tanpa Docker) atau HTTP
 CHROMA_MODE=embedded

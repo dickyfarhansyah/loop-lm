@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "Wiratek AI Backend - TypeScript implementation with Hono",
+  "description": "LoopLM Backend - TypeScript implementation with Hono",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

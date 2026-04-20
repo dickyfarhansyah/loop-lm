@@ -1,4 +1,4 @@
-# Wiratek AI - Python Backend
+# LoopLM - Python Backend
 
 Backend Python equivalent dari JavaScript backend. API identik 100%, menggunakan:
 

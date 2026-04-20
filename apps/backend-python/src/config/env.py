@@ -13,7 +13,7 @@ class Env:
     CORS_ALLOW_ORIGIN: str = os.getenv("CORS_ALLOW_ORIGIN", "*")
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./uploads")
     MAX_FILE_SIZE: int = int(os.getenv("MAX_FILE_SIZE", "10485760"))
-    WEBUI_NAME: str = os.getenv("WEBUI_NAME", "Wiratek AI")
+    WEBUI_NAME: str = os.getenv("WEBUI_NAME", "LoopLM")
     # ChromaDB
     CHROMA_MODE: str = os.getenv("CHROMA_MODE", "embedded")  # embedded | http
     CHROMA_PERSIST_DIR: str = os.getenv("CHROMA_PERSIST_DIR", "./data/chroma")
