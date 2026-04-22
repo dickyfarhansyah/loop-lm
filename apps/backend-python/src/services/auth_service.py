@@ -141,12 +141,10 @@ class AuthService:
             
         try:
             session_id, _ = raw_refresh_token.split("::")
-            print("session id: ", session_id)
             db.query(UserSession).filter(UserSession.id == session_id).delete()
             db.commit()
         except Exception:
             db.rollback()
-            print("FAIL")
             pass # 'Pass' because failure to delete shouldn't stop cookies deletion
 
     def generate_api_key(self, db: Session, user_id: str) -> str:
