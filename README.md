@@ -5,7 +5,7 @@ Full-stack AI Chat Application — monorepo dengan Python backend dan React fron
 ## Struktur
 
 ```
-wiratek-ai/
+looplm/
 ├── apps/
 │   ├── backend-python/   # FastAPI + SQLAlchemy + SQLite + ChromaDB (RAG)
 │   ├── backend/          # (legacy) Hono + Drizzle + SQLite
@@ -37,7 +37,7 @@ Cukup satu perintah — `make dev` atau `make prod` akan otomatis:
 ```bash
 # Clone repo
 git clone <repo-url>
-cd wiratek-ai
+cd looplm
 
 # Jalankan mode development (hot-reload)
 make dev
