@@ -23,7 +23,7 @@ def get_current_user(
 
     # 2. Cookie fallback
     if not token:
-        token = request.cookies.get("token")
+        token = request.cookies.get("access_token")
 
     if not token:
         raise UnauthorizedError("No token provided")

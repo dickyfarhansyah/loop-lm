@@ -29,3 +29,7 @@ class NotFoundError(AppError):
 class ConflictError(AppError):
     def __init__(self, message: str = "Conflict"):
         super().__init__(status_code=status.HTTP_409_CONFLICT, message=message)
+
+class InternalServerError(AppError):
+    def __init__(self, message: str = "Internal server error"):
+        super().__init__(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, message=message)
