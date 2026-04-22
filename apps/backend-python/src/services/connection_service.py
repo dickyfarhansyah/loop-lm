@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime
 from nanoid import generate
 from sqlalchemy.orm import Session
@@ -102,6 +103,17 @@ class ConnectionService:
         db.delete(conn)
         db.commit()
 
+    def _sanitize_base_url(self, url: str) -> str:
+        if not url:
+            return ""
+        url = url.strip().rstrip("/")
+        url = re.sub(r"/v1$", "", url, flags=re.IGNORECASE)
+        return url
+
+    def _build_models_url(self, url: str) -> str:
+        base_url = self._sanitize_base_url(url)
+        return f"{base_url}/v1/models"
+
     def verify_connection(self, db: Session, conn_id: str, user_id: str) -> dict:
         conn = db.query(Connection).filter(Connection.id == conn_id, Connection.user_id == user_id).first()
         if not conn:
@@ -112,7 +124,7 @@ class ConnectionService:
                 headers["Authorization"] = f"Bearer {conn.auth_value}"
             elif conn.auth_type == "api_key" and conn.auth_value:
                 headers["Authorization"] = f"Bearer {conn.auth_value}"
-            resp = httpx.get(f"{conn.url.rstrip('/')}/v1/models", headers=headers, timeout=5)
+            resp = httpx.get(self._build_models_url(conn.url), headers=headers, timeout=5)
             ok = resp.status_code < 400
             conn.last_verified_at = datetime.utcnow()
             db.commit()
@@ -128,7 +140,7 @@ class ConnectionService:
             headers = {}
             if conn.auth_type in ("bearer", "api_key") and conn.auth_value:
                 headers["Authorization"] = f"Bearer {conn.auth_value}"
-            resp = httpx.get(f"{conn.url.rstrip('/')}/v1/models", headers=headers, timeout=5)
+            resp = httpx.get(self._build_models_url(conn.url), headers=headers, timeout=5)
             resp.raise_for_status()
             data = resp.json()
             return data.get("data", [])
@@ -145,7 +157,7 @@ class ConnectionService:
                 headers = {}
                 if conn.auth_type in ("bearer", "api_key") and conn.auth_value:
                     headers["Authorization"] = f"Bearer {conn.auth_value}"
-                resp = httpx.get(f"{conn.url.rstrip('/')}/v1/models", headers=headers, timeout=5)
+                resp = httpx.get(self._build_models_url(conn.url), headers=headers, timeout=5)
                 resp.raise_for_status()
                 data = resp.json()
                 for m in data.get("data", []):
