@@ -85,8 +85,12 @@ class UserSession(Base):
     id = Column(String, primary_key=True)
     user_id = Column(String, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     hashed_refresh_token = Column(String, nullable=False)
+    
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    is_valid = Column(Boolean, nullable=False, default=True)
 
     user = relationship("User", back_populates="sessions")
     

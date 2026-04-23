@@ -9,9 +9,10 @@ from src.utils.jwt import generate_refresh_token, sign_access_token
 from src.utils.errors import BadRequestError, UnauthorizedError, InternalServerError
 from sqlalchemy.exc import SQLAlchemyError
 
+AUTH_GRACE_PERIOD_SECONDS = 5
 
 class AuthService:
-    def _create_tokens_and_session(self, db: Session, user: User) -> dict:
+    def _create_tokens_and_session(self, db: Session, user: User, existing_session: UserSession = None) -> dict:
         """Internal helper function to create tokens and store sessions"""
         access_token = sign_access_token({
             "id": user.id, "email": user.email,
@@ -21,19 +22,27 @@ class AuthService:
         refresh_token = generate_refresh_token()
         hashed_rt = hash_password(refresh_token) 
         
-        session_id = generate()
         expires_at = datetime.utcnow() + timedelta(days=7) 
+        now = datetime.utcnow()
         
-        db_session = UserSession(
-            id=session_id,
-            user_id=user.id,
-            hashed_refresh_token=hashed_rt,
-            expires_at=expires_at
-        )
-        db.add(db_session)
-        # DB commit is omitted here because we will do it as a transaction with other tables
-        # db.commit()
-        
+        if existing_session:
+            session_id = existing_session.id
+            existing_session.hashed_refresh_token = hashed_rt
+            existing_session.expires_at = expires_at
+            existing_session.updated_at = now
+        else:
+            session_id = generate()
+            db_session = UserSession(
+                id=session_id,
+                user_id=user.id,
+                hashed_refresh_token=hashed_rt,
+                expires_at=expires_at,
+                is_valid=True,
+                created_at=now,
+                updated_at=now
+            )
+            db.add(db_session)
+            
         return {
             "access_token": access_token, 
             "refresh_token": f"{session_id}::{refresh_token}"
@@ -85,11 +94,11 @@ class AuthService:
             raise UnauthorizedError("User not found")
 
         try:
-            # Delete all expired user session (for cleanup)
+            # Soft delete all expired user session
             db.query(UserSession).filter(
                 UserSession.user_id == user.id,
                 UserSession.expires_at < datetime.utcnow()
-            ).delete()
+            ).update({"is_valid": False, "updated_at": datetime.utcnow()})
 
             tokens = self._create_tokens_and_session(db, user)
             db.commit() 
@@ -106,15 +115,15 @@ class AuthService:
 
         db_session = db.query(UserSession).filter(UserSession.id == session_id).first()
         
-        if not db_session:
-            raise UnauthorizedError("Session not found")
+        if not db_session or not db_session.is_valid:
+            raise UnauthorizedError("Session not found or revoked")
             
-        if db_session.expires_at < datetime.utcnow():
-            try:
-                db.delete(db_session)
-                db.commit()
-            except SQLAlchemyError:
-                db.rollback()
+        now = datetime.utcnow()
+
+        if db_session.expires_at < now:
+            db_session.is_valid = False
+            db_session.updated_at = now
+            db.commit()
             raise UnauthorizedError("Session expired")
 
         if not verify_password(plain_token, db_session.hashed_refresh_token):
@@ -123,25 +132,25 @@ class AuthService:
         user = db.query(User).filter(User.id == db_session.user_id).first()
         
         try:
-            db.delete(db_session)
-            
-            tokens = self._create_tokens_and_session(db, user)
-            
+            # Create or update refresh token in DB
+            tokens = self._create_tokens_and_session(db, user, existing_session=db_session)
             db.commit()
-            
             return {"user": user, **tokens}
         except SQLAlchemyError:
             db.rollback() 
             raise InternalServerError("Failed to refresh and rotate session")
 
     def signout(self, db: Session, raw_refresh_token: str | None) -> None:
-        """Delete session from database on user logout"""
         if not raw_refresh_token:
             return 
             
         try:
             session_id, _ = raw_refresh_token.split("::")
-            db.query(UserSession).filter(UserSession.id == session_id).delete()
+            # Soft delete current session
+            db.query(UserSession).filter(UserSession.id == session_id).update({
+                "is_valid": False,
+                "updated_at": datetime.utcnow()
+            })
             db.commit()
         except Exception:
             db.rollback()

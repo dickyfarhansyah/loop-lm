@@ -31,14 +31,17 @@ def _user_response(u: User) -> dict:
 
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
     access_token_max_age = parse_expiry(env.JWT_EXPIRES_IN)
+    secure = env.NODE_ENV == "production"
     
     response.set_cookie(
         "access_token", access_token, httponly=True, samesite="lax",
+        secure=secure,
         path="/", max_age=access_token_max_age,
     )
     
     response.set_cookie(
         "refresh_token", refresh_token, httponly=True, samesite="lax",
+        secure=secure,
         path="/api/v1/auths", # Using base prefix instead of /refresh because /signout also needs to read and delete it.
         max_age=7 * 24 * 60 * 60,
     )
