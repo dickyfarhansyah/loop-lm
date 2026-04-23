@@ -66,6 +66,7 @@ class User(Base):
     notes = relationship("Note", back_populates="user", cascade="all, delete-orphan")
     knowledge = relationship("Knowledge", back_populates="user", cascade="all, delete-orphan")
     group_memberships = relationship("GroupMember", back_populates="user", cascade="all, delete-orphan")
+    sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
 
 
 class Auth(Base):
@@ -78,6 +79,21 @@ class Auth(Base):
 
     user = relationship("User", back_populates="auth")
 
+class UserSession(Base):
+    __tablename__ = "user_session"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    hashed_refresh_token = Column(String, nullable=False)
+    
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    is_valid = Column(Boolean, nullable=False, default=True)
+
+    user = relationship("User", back_populates="sessions")
+    
 
 class ApiKey(Base):
     __tablename__ = "api_key"
