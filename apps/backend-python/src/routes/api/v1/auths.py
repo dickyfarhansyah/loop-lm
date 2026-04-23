@@ -71,7 +71,7 @@ def signout(request: Request, response: Response, db: Session = Depends(get_db))
     auth_service.signout(db, refresh_token)
 
     response.delete_cookie("access_token", path="/")
-    response.delete_cookie("refresh_token", path="/refresh") 
+    response.delete_cookie("refresh_token", path="/api/v1/auths") 
     
     return {"message": "Signed out successfully"}
 
