@@ -9,13 +9,10 @@ export const authKeys = {
 }
 
 export function useSession() {
-  const token = localStorage.getItem("token")
-
   return useQuery({
     queryKey: authKeys.session(),
     queryFn: () => authApi.getSession().then((res) => res.data),
     retry: false,
-    enabled: !!token,
   })
 }
 
@@ -32,7 +29,6 @@ export function useSignin() {
   return useMutation({
     mutationFn: (data: SigninRequest) => authApi.signin(data),
     onSuccess: (res) => {
-      localStorage.setItem("token", res.data.token)
       queryClient.setQueryData(authKeys.session(), res.data.user)
     },
   })
@@ -44,7 +40,6 @@ export function useSignup() {
   return useMutation({
     mutationFn: (data: SignupRequest) => authApi.signup(data),
     onSuccess: (res) => {
-      localStorage.setItem("token", res.data.token)
       queryClient.setQueryData(authKeys.session(), res.data.user)
     },
   })
@@ -56,7 +51,6 @@ export function useSignout() {
   return useMutation({
     mutationFn: () => authApi.signout(),
     onSuccess: () => {
-      localStorage.removeItem("token")
       queryClient.clear()
     },
   })
