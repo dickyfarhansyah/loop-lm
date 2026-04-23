@@ -113,7 +113,12 @@ class AuthService:
         except ValueError:
             raise UnauthorizedError("Invalid token format")
 
-        db_session = db.query(UserSession).filter(UserSession.id == session_id).first()
+        db_session = (
+                db.query(UserSession)
+                .with_for_update() # Row-level locking to prevent race condition
+                .filter(UserSession.id == session_id)
+                .first()
+            )
         
         if not db_session or not db_session.is_valid:
             raise UnauthorizedError("Session not found or revoked")
@@ -128,6 +133,10 @@ class AuthService:
 
         if not verify_password(plain_token, db_session.hashed_refresh_token):
             raise UnauthorizedError("Invalid refresh token")
+        
+        # Grace period (5 seconds) to prevent token re-creation and DB updates
+        if db_session.updated_at and (now - db_session.updated_at < timedelta(seconds=AUTH_GRACE_PERIOD_SECONDS)):
+            return {"grace_period_active": True}
 
         user = db.query(User).filter(User.id == db_session.user_id).first()
         

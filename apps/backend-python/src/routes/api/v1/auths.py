@@ -82,6 +82,9 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
         raise UnauthorizedError("No refresh token provided")
         
     result = auth_service.refresh_session(db, refresh_token)
+
+    if result.get("grace_period_active"):
+        return {"message": "Session rotated by another tab. Grace period applied."}
     
     set_auth_cookies(response, result["access_token"], result["refresh_token"])
     return {"message": "Session refreshed successfully"}
