@@ -20,23 +20,11 @@ _DEFAULT_TIMEOUT = 120.0
 # ---------------------------------------------------------------------------
 
 def _sanitize_base_url(url: str) -> str:
-    """
-    Normalize AI provider base URL.
-
-    This prevents duplicated /v1 paths.
-
-    Example:
-      http://localhost:1234       -> http://localhost:1234
-      http://localhost:1234/      -> http://localhost:1234
-      http://localhost:1234/v1    -> http://localhost:1234
-      http://localhost:1234/v1/   -> http://localhost:1234
-    """
     if not url:
         return ""
 
     url = url.strip().rstrip("/")
 
-    # Remove trailing /v1 if user already inserted OpenAI-compatible base path
     url = re.sub(r"/v1$", "", url, flags=re.IGNORECASE)
 
     return url
