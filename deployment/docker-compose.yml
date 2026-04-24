@@ -1,0 +1,77 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: deployed-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/sites-enabled:/etc/nginx/conf.d:ro
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - backend-python
+      - frontend-python
+    restart: unless-stopped
+
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: looplm-ai-chromadb
+    restart: unless-stopped
+    expose:
+      - "8000"
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    volumes:
+      - chroma_data:/chroma/chroma
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==================== Python Stack ====================
+
+  backend-python:
+    build:
+      context: ..
+      dockerfile: apps/backend-python/Dockerfile
+    container_name: looplm-ai-backend-python
+    restart: unless-stopped
+    expose:
+      - "8080"
+    env_file:
+      - .env.backend
+    volumes:
+      - backend_python_data:/app/data
+      - backend_python_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: ["gpu"]
+              device_ids: ["0"]
+
+  frontend-python:
+    build:
+      context: ..
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL}
+    container_name: looplm-ai-frontend-python
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      - backend-python
+
+volumes:
+  backend_python_data:
+  backend_python_uploads:
+  chroma_data:
