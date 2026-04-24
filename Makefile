@@ -1,5 +1,25 @@
 .PHONY: help dev prod setup build start stop restart logs logs-backend logs-frontend shell-backend shell-frontend db-push db-studio db-clear db-reset db-reset-python db-users db-update-email clean prune build-python start-python stop-python restart-python logs-python shell-python nginx-setup nginx-reload
 
+# Auto-detect uv, allow override with USE_UV=0
+UV := $(shell command -v uv 2>/dev/null)
+ifdef USE_UV
+  ifeq ($(USE_UV),0)
+    UV :=
+  endif
+endif
+
+ifeq ($(UV),)
+  VENV_CMD    = python3 -m venv apps/backend-python/.venv
+  PIP_UPGRADE = apps/backend-python/.venv/bin/python -m pip install --quiet --upgrade pip
+  PIP_INSTALL = apps/backend-python/.venv/bin/python -m pip install --quiet -r apps/backend-python/requirements.txt
+  BACKEND     = pip
+else
+  VENV_CMD    = uv venv --project apps/backend-python/
+  PIP_UPGRADE = cd apps/backend-python && uv pip install --quiet --upgrade pip
+  PIP_INSTALL = cd apps/backend-python && uv pip install --quiet -r requirements.txt
+  BACKEND     = uv
+endif
+
 # Default target
 help:
 	@echo "LoopLM - Makefile Commands"
@@ -51,16 +71,16 @@ help:
 setup:
 	@echo "[1/4] Installing Node dependencies..."
 	pnpm install
-	@echo "[2/4] Setting up Python virtual environment..."
+	@echo "[2/4] Setting up Python virtual environment (using $(BACKEND))..."
 	@if [ ! -d apps/backend-python/.venv ]; then \
 		echo "Creating .venv..."; \
-		python3 -m venv apps/backend-python/.venv; \
+		$(VENV_CMD); \
 	else \
 		echo ".venv already exists, skipping."; \
 	fi
 	@echo "[3/4] Installing Python dependencies..."
-	apps/backend-python/.venv/bin/pip install --quiet --upgrade pip
-	apps/backend-python/.venv/bin/pip install --quiet -r apps/backend-python/requirements.txt
+	$(PIP_UPGRADE)
+	$(PIP_INSTALL)
 	@echo "[4/4] Copying .env files if missing..."
 	@if [ ! -f apps/backend-python/.env ]; then \
 		cp apps/backend-python/.env.example apps/backend-python/.env; \
@@ -69,6 +89,7 @@ setup:
 		echo "apps/backend-python/.env already exists, skipping."; \
 	fi
 	@echo "Setup complete!"
+
 
 dev: setup
 	@trap 'kill 0' SIGINT; \
