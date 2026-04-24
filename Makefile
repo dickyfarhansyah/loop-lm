@@ -14,7 +14,7 @@ ifeq ($(UV),)
   PIP_INSTALL = apps/backend-python/.venv/bin/python -m pip install --quiet -r apps/backend-python/requirements.txt
   BACKEND     = pip
 else
-  VENV_CMD    = uv venv --project apps/backend-python/
+  VENV_CMD    = uv venv --directory apps/backend-python/
   PIP_UPGRADE = cd apps/backend-python && uv pip install --quiet --upgrade pip
   PIP_INSTALL = cd apps/backend-python && uv pip install --quiet -r requirements.txt
   BACKEND     = uv
