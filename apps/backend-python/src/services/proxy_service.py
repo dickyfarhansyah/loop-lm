@@ -5,6 +5,8 @@ Matches TypeScript backend behaviour:
   - Injects system prompt from promptId / default model prompt / model config
   - Strips unknown fields (promptId) before forwarding
 """
+
+import re
 import httpx
 from sqlalchemy.orm import Session
 from src.db.models import Connection, Model, ModelPrompt, User
@@ -16,6 +18,45 @@ _DEFAULT_TIMEOUT = 120.0
 # ---------------------------------------------------------------------------
 # Connection helpers
 # ---------------------------------------------------------------------------
+
+def _sanitize_base_url(url: str) -> str:
+    """
+    Normalize AI provider base URL.
+
+    This prevents duplicated /v1 paths.
+
+    Example:
+      http://localhost:1234       -> http://localhost:1234
+      http://localhost:1234/      -> http://localhost:1234
+      http://localhost:1234/v1    -> http://localhost:1234
+      http://localhost:1234/v1/   -> http://localhost:1234
+    """
+    if not url:
+        return ""
+
+    url = url.strip().rstrip("/")
+
+    # Remove trailing /v1 if user already inserted OpenAI-compatible base path
+    url = re.sub(r"/v1$", "", url, flags=re.IGNORECASE)
+
+    return url
+
+
+def _models_url(conn: Connection) -> str:
+    return f"{_sanitize_base_url(conn.url)}/v1/models"
+
+
+def _chat_url(conn: Connection) -> str:
+    return f"{_sanitize_base_url(conn.url)}/v1/chat/completions"
+
+
+def _completions_url(conn: Connection) -> str:
+    return f"{_sanitize_base_url(conn.url)}/v1/completions"
+
+
+def _embeddings_url(conn: Connection) -> str:
+    return f"{_sanitize_base_url(conn.url)}/v1/embeddings"
+
 
 def _get_default_connection(db: Session, user_id: str) -> Connection:
     """Return the default/highest-priority enabled connection for user."""
@@ -71,17 +112,15 @@ def _get_connection_by_model(db: Session, user_id: str, model_id: str) -> Connec
 
 def _build_headers(conn: Connection) -> dict:
     headers = {"Content-Type": "application/json"}
+
     if conn.auth_type in ("bearer", "api_key") and conn.auth_value:
         headers["Authorization"] = f"Bearer {conn.auth_value}"
+
     return headers
 
 
-def _chat_url(conn: Connection) -> str:
-    return f"{conn.url.rstrip('/')}/v1/chat/completions"
-
-
 # ---------------------------------------------------------------------------
-# System prompt injection (mirrors TypeScript proxyService)
+# System prompt injection
 # ---------------------------------------------------------------------------
 
 def _get_or_create_model(db: Session, model_id: str, user_id: str) -> Model:
@@ -90,12 +129,13 @@ def _get_or_create_model(db: Session, model_id: str, user_id: str) -> Model:
     from nanoid import generate
 
     m = db.query(Model).filter(
-        Model.base_model_id == model_id, Model.user_id == user_id
+        Model.base_model_id == model_id,
+        Model.user_id == user_id,
     ).first()
+
     if m:
         return m
 
-    # Create placeholder
     m = Model(
         id=generate(),
         user_id=user_id,
@@ -105,22 +145,24 @@ def _get_or_create_model(db: Session, model_id: str, user_id: str) -> Model:
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
+
     db.add(m)
     db.commit()
     db.refresh(m)
+
     return m
 
 
 def _inject_system_prompt(db: Session, user_id: str, body: dict) -> dict:
     """
     1. Strip `promptId` from body.
-    2. Resolve system prompt text (promptId → default model prompt → model config).
+    2. Resolve system prompt text:
+       promptId -> default model prompt -> model config.
     3. Inject as first system message.
-    Returns a clean copy of body ready to forward.
     """
-    body = dict(body)  # shallow copy
+    body = dict(body)
     model_id = body.get("model", "")
-    prompt_id = body.pop("promptId", None)  # always strip
+    prompt_id = body.pop("promptId", None)
 
     system_prompt_text = ""
 
@@ -128,13 +170,16 @@ def _inject_system_prompt(db: Session, user_id: str, body: dict) -> dict:
     if prompt_id:
         try:
             mp = db.query(ModelPrompt).filter(
-                ModelPrompt.id == prompt_id, ModelPrompt.user_id == user_id
+                ModelPrompt.id == prompt_id,
+                ModelPrompt.user_id == user_id,
             ).first()
+
             if mp and mp.enabled:
                 system_prompt_text = mp.prompt or mp.content or ""
                 print(f"[PROXY] ✓ Using selected prompt: {mp.name}")
             else:
                 print("[PROXY] ✗ promptId not found or disabled")
+
         except Exception as e:
             print(f"[PROXY] ✗ Error fetching promptId: {e}")
 
@@ -142,45 +187,62 @@ def _inject_system_prompt(db: Session, user_id: str, body: dict) -> dict:
     if not system_prompt_text and model_id:
         try:
             model_record = _get_or_create_model(db, model_id, user_id)
+
             default_mp = db.query(ModelPrompt).filter(
                 ModelPrompt.model_id == model_record.id,
                 ModelPrompt.user_id == user_id,
                 ModelPrompt.is_default == True,
                 ModelPrompt.enabled == True,
             ).first()
+
             if default_mp:
                 system_prompt_text = default_mp.prompt or default_mp.content or ""
                 print(f"[PROXY] ✓ Using default model prompt: {default_mp.name}")
             else:
                 print("[PROXY] ✗ No default model prompt")
+
         except Exception as e:
             print(f"[PROXY] ✗ Error fetching default prompt: {e}")
 
-    # 3. Model config system prompt (legacy)
+    # 3. Legacy model config prompt
     if not system_prompt_text and model_id:
         try:
             model_record = _get_or_create_model(db, model_id, user_id)
+
             legacy_mp = db.query(ModelPrompt).filter(
                 ModelPrompt.model_id == model_record.id,
                 ModelPrompt.user_id == user_id,
             ).first()
+
             if legacy_mp:
                 text = legacy_mp.prompt or legacy_mp.content or ""
                 if text:
                     system_prompt_text = text
                     print("[PROXY] ✓ Using legacy model config prompt")
+
         except Exception as e:
             print(f"[PROXY] ✗ Error fetching legacy prompt: {e}")
 
-    # Inject
+    # Inject system prompt
     if system_prompt_text:
         messages = list(body.get("messages", []))
+
         if messages and messages[0].get("role") == "system":
-            messages[0] = {"role": "system", "content": system_prompt_text}
+            messages[0] = {
+                "role": "system",
+                "content": system_prompt_text,
+            }
             print("[PROXY] ✓ Replaced existing system message")
         else:
-            messages.insert(0, {"role": "system", "content": system_prompt_text})
+            messages.insert(
+                0,
+                {
+                    "role": "system",
+                    "content": system_prompt_text,
+                },
+            )
             print("[PROXY] ✓ Prepended new system message")
+
         body["messages"] = messages
     else:
         print("[PROXY] ✗ No system prompt to inject")
@@ -195,46 +257,60 @@ def _inject_system_prompt(db: Session, user_id: str, body: dict) -> dict:
 class ProxyService:
     def get_models(self, db: Session, user_id: str) -> dict:
         conn = _get_default_connection(db, user_id)
+
         resp = httpx.get(
-            f"{conn.url.rstrip('/')}/v1/models",
+            _models_url(conn),
             headers=_build_headers(conn),
             timeout=_DEFAULT_TIMEOUT,
         )
+
         resp.raise_for_status()
         return resp.json()
 
     def chat_completions(self, db: Session, user_id: str, body: dict) -> dict:
         clean_body = _inject_system_prompt(db, user_id, body)
+
         model_id = clean_body.get("model", "")
-        conn = _get_connection_by_model(db, user_id, model_id) if model_id else _get_default_connection(db, user_id)
+
+        conn = (
+            _get_connection_by_model(db, user_id, model_id)
+            if model_id
+            else _get_default_connection(db, user_id)
+        )
+
         resp = httpx.post(
             _chat_url(conn),
             json=clean_body,
             headers=_build_headers(conn),
             timeout=_DEFAULT_TIMEOUT,
         )
+
         resp.raise_for_status()
         return resp.json()
 
     def completions(self, db: Session, user_id: str, body: dict) -> dict:
         conn = _get_default_connection(db, user_id)
+
         resp = httpx.post(
-            f"{conn.url.rstrip('/')}/v1/completions",
+            _completions_url(conn),
             json=body,
             headers=_build_headers(conn),
             timeout=_DEFAULT_TIMEOUT,
         )
+
         resp.raise_for_status()
         return resp.json()
 
     def embeddings(self, db: Session, user_id: str, body: dict) -> dict:
         conn = _get_default_connection(db, user_id)
+
         resp = httpx.post(
-            f"{conn.url.rstrip('/')}/v1/embeddings",
+            _embeddings_url(conn),
             json=body,
             headers=_build_headers(conn),
             timeout=_DEFAULT_TIMEOUT,
         )
+
         resp.raise_for_status()
         return resp.json()
 
