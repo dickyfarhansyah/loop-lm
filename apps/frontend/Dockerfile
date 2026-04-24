@@ -3,8 +3,8 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Install pnpm (bypass corepack network issues)
+RUN npm install -g pnpm@9.15.0
 
 # Copy root package files for monorepo
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
