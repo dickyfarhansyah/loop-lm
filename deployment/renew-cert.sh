@@ -11,4 +11,4 @@ certbot/certbot renew --quiet
 
 docker compose -f "$PROJECT_DIR/deployment/docker-compose.yml" --env-file "$PROJECT_DIR/deployment/.env.docker" exec -T nginx nginx -s reload
 
-echo "$(date): Cert renewal check finished" >> /var/log/looplm-renewal.log
+echo "$(date): Cert renewal check finished" >> "$PROJECT_DIR/deployment/looplm-renewal.log"
