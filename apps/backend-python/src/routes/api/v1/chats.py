@@ -34,6 +34,7 @@ class AddMessageSchema(BaseModel):
     model: Optional[str] = None
     images: Optional[list] = None
     sources: Optional[list] = None
+    notes: Optional[list] = None
 
 
 class UpdateMessageSchema(BaseModel):

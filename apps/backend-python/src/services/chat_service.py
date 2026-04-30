@@ -5,7 +5,7 @@ import threading
 from datetime import datetime, timezone
 from nanoid import generate
 from sqlalchemy.orm import Session
-from src.db.models import Chat, ChatFile
+from src.db.models import Chat, ChatFile, Note
 from src.utils.errors import NotFoundError, ForbiddenError
 
 logger = logging.getLogger(__name__)
@@ -93,6 +93,8 @@ class ChatService:
         chat = db.query(Chat).filter(Chat.id == chat_id, Chat.user_id == user_id).first()
         if not chat:
             raise NotFoundError("Chat not found")
+        if "notes" in message_data:
+            message_data["notes"] = self._normalize_notes(db, user_id, message_data.get("notes"))
         chat_data = json.loads(chat.chat) if isinstance(chat.chat, str) else chat.chat
         if not isinstance(chat_data, dict):
             chat_data = {}
@@ -241,5 +243,40 @@ class ChatService:
         chat.updated_at = datetime.utcnow()
         db.commit()
 
+    def _normalize_notes(self, db: Session, user_id: str, notes: list | None) -> list:
+        if not notes:
+            return []
 
+        note_ids = [
+            item.get("id")
+            for item in notes
+            if isinstance(item, dict) and item.get("id")
+        ]
+
+        if not note_ids:
+            return []
+
+        db_notes = (
+            db.query(Note)
+            .filter(Note.user_id == user_id, Note.id.in_(note_ids))
+            .all()
+        )
+        note_map = {note.id: note for note in db_notes}
+
+        normalized = []
+        for item in notes:
+            if not isinstance(item, dict):
+                continue
+
+            note = note_map.get(item.get("id"))
+            if not note:
+                continue
+
+            normalized.append({
+                "id": note.id,
+                "title": note.title,
+                "shareId": note.share_id,
+            })
+
+        return normalized
 chat_service = ChatService()
